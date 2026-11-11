@@ -1,212 +1,208 @@
-# DATA DICTIONARY
-This data dictionary defines the structure, meaning, and relationships of the core datasets used in the Banking Fraud Intelligence & Investigation Analytics Platform.
+# Data Dictionary
+
+This document describes the database structure of the **Banking Fraud Intelligence & Investigation Analytics Platform**.
+
+The platform uses a synthetic retail banking dataset stored in PostgreSQL. The database is organised into two schemas:
+
+- `banking` – operational synthetic banking data.
+- `evaluation` – ground-truth metadata used to evaluate suspicious activity detection.
+
+The database contains seven core banking tables and one evaluation table.
 
 ## 1. Customers
-The customer table contains demographic, customer-segment and baseline risk information for bank customers. 
 
-| Column                 | Data Type   | Key | Purpose                             |
-| ---------------------- | ----------- | --- | ----------------------------------- |
-| `customer_id`          | BIGINT      | PK  | Unique customer                     |
-| `age`                  | SMALLINT    |     | Customer age                        |
-| `income_band`          | VARCHAR(30) |     | Estimated income segment            |
-| `customer_segment`     | VARCHAR(30) |     | Standard / Premium / Business etc.  |
-| `customer_risk_rating` | VARCHAR(20) |     | Bank's baseline risk classification |
-| `country`              | VARCHAR(50) |     | Customer's registered country       |
-| `occupation`           | VARCHAR(50) |     | Occupation                          |
-| `customer_since`       | DATE        |     | Relationship start date             |
+The `banking.customers` table contains demographic, customer-segment and baseline risk information.
 
-Analytical use
+| Column | Data Type | Key | Description |
+|---|---|---|---|
+| `customer_id` | BIGINT | PK | Unique customer identifier |
+| `age` | SMALLINT | | Customer age |
+| `income_band` | VARCHAR(30) | | Estimated income segment |
+| `customer_segment` | VARCHAR(30) | | Customer category, such as Standard, Premium or Business |
+| `customer_risk_rating` | VARCHAR(20) | | Baseline customer risk classification |
+| `country` | VARCHAR(50) | | Registered customer country |
+| `occupation` | VARCHAR(50) | | Customer occupation |
+| `customer_since` | DATE | | Date the customer relationship began |
 
-This table can be used to:
-- Compare transaction behavior across customer segments.
-- Establish customer-level context for investigations.
-- Identify behavioral deviations from a customer's historical profile.
-- Analyze fraud exposure by customer segment.
-- Determine whether newly onboarded customers exhibit unusual activity.
+**Analytical use**
+
+- Compare transaction behaviour across customer segments.
+- Establish customer-level context for risk analysis.
+- Examine historical and current transaction behaviour.
+- Analyse customer exposure to suspicious activity.
 
 ## 2. Accounts
-The accounts table contains the bank accounts associated with customers.
 
-| Column              | Data Type     | Key | Description                                                        |
-| ------------------- | ------------- | --- | ------------------------------------------------------------------ |
-| `account_id`        | BIGINT        | PK  | Unique identifier for the bank account.                            |
-| `customer_id`       | BIGINT        | FK  | Identifier of the customer who owns the account.                   |
-| `account_type`      | VARCHAR(30)   |     | Type of account, such as Savings, Current, or Credit.              |
-| `account_open_date` | DATE          |     | Date on which the account was opened.                              |
-| `account_status`    | VARCHAR(20)   |     | Current status of the account, such as Active, Dormant, or Closed. |
-| `current_balance`   | NUMERIC(15,2) |     | Current account balance in the account's reporting currency.       |
+The `banking.accounts` table contains bank accounts associated with customers.
 
-Analytical use
+| Column | Data Type | Key | Description |
+|---|---|---|---|
+| `account_id` | BIGINT | PK | Unique bank account identifier |
+| `customer_id` | BIGINT | FK | Customer who owns the account |
+| `account_type` | VARCHAR(30) | | Account type, such as Savings, Current or Credit |
+| `account_open_date` | DATE | | Account opening date |
+| `account_status` | VARCHAR(20) | | Account status |
+| `current_balance` | NUMERIC(15,2) | | Synthetic account balance snapshot |
 
-This table can be used to:
-- Analyze transaction behavior at the account level.
+**Relationship**
+
+`customers.customer_id` → `accounts.customer_id` (1:N)
+
+**Analytical use**
+
+- Analyse transaction activity at account level.
 - Identify customers with multiple accounts.
-- Compare transaction activity with account characteristics.
-- Investigate accounts involved in suspicious transactions.
-- Analyze account age and activity patterns.
-
-Relationship
-customers.customer_id
-        │
-        │ 1 : N
-accounts.customer_id
+- Examine account characteristics alongside transaction behaviour.
+- Investigate accounts associated with suspicious activity.
 
 ## 3. Transactions
-The transaction table acts the central transactional dataset of the platform. Each record represents a financial transaction performed through a bank account. 
 
-| Column                  | Data Type     | Key | Description                                                                                        |
-| ----------------------- | ------------- | --- | -------------------------------------------------------------------------------------------------- |
-| `transaction_id`        | BIGINT        | PK  | Unique identifier for the transaction.                                                             |
-| `account_id`            | BIGINT        | FK  | Account from which the transaction originated.                                                     |
-| `transaction_timestamp` | TIMESTAMP     |     | Exact date and time when the transaction occurred.                                                 |
-| `transaction_amount`    | NUMERIC(15,2) |     | Monetary value of the transaction.                                                                 |
-| `transaction_type`      | VARCHAR(30)   |     | Type of transaction, such as Card Payment, Bank Transfer, ATM Withdrawal, or UPI.                  |
-| `transaction_direction` | VARCHAR(10)   |     | Indicates whether money moved into or out of the account (`IN` or `OUT`).                          |
-| `merchant_id`           | BIGINT        | FK  | Merchant associated with the transaction, where applicable.                                        |
-| `device_id`             | BIGINT        | FK  | Device used to initiate the transaction, where applicable.                                         |
-| `location_id`           | BIGINT        | FK  | Location associated with the transaction.                                                          |
-| `beneficiary_id`        | BIGINT        | FK  | Beneficiary receiving funds, where applicable.                                                     |
-| `payment_channel`       | VARCHAR(30)   |     | Channel used to initiate the transaction, such as Mobile App, Internet Banking, ATM, Card, or UPI. |
-| `transaction_status`    | VARCHAR(20)   |     | Transaction result, such as Completed, Failed, Reversed, or Declined.                              |
-| `currency`              | CHAR(3)       |     | Three-letter ISO-style currency code associated with the transaction.                              |
+The `banking.transactions` table is the central transactional dataset. Each record represents a financial transaction performed through a bank account.
 
-Analytical use
+| Column | Data Type | Key | Description |
+|---|---|---|---|
+| `transaction_id` | BIGINT | PK | Unique transaction identifier |
+| `account_id` | BIGINT | FK | Account associated with the transaction |
+| `transaction_timestamp` | TIMESTAMP | | Date and time of the transaction |
+| `transaction_amount` | NUMERIC(15,2) | | Transaction amount |
+| `transaction_type` | VARCHAR(30) | | Transaction category |
+| `transaction_direction` | VARCHAR(10) | | Money movement direction: IN or OUT |
+| `merchant_id` | BIGINT | FK | Associated merchant, where applicable |
+| `device_id` | BIGINT | FK | Device used, where applicable |
+| `location_id` | BIGINT | FK | Associated transaction location |
+| `beneficiary_id` | BIGINT | FK | Beneficiary receiving funds, where applicable |
+| `payment_channel` | VARCHAR(30) | | Channel used to initiate the transaction |
+| `transaction_status` | VARCHAR(20) | | Transaction outcome |
+| `currency` | CHAR(3) | | Currency code |
 
-This table supports most of the project's core analysis, including:
+**Analytical use**
+
+- Transaction volume and value analysis.
+- Customer historical behavioural baselines.
+- High-value transaction deviation detection.
 - Transaction velocity analysis.
-- High-value transaction detection.
-- Customer behavioral baselines.
-- Sudden behavioral changes.
-- Geographic anomalies.
-- Merchant risk analysis.
-- Device-account relationship analysis.
-- Beneficiary relationship analysis.
-- Fraud loss calculations.
-- Time-series analysis.
+- Geographic and device-related behavioural analysis.
+- Transaction trend and payment-channel analysis.
 
-## 4. Merchants 
-The merchants table stores information about merchants involved in customer transactions.
+## 4. Merchants
 
-| Column                 | Data Type    | Key | Description                                                                       |
-| ---------------------- | ------------ | --- | --------------------------------------------------------------------------------- |
-| `merchant_id`          | BIGINT       | PK  | Unique identifier for the merchant.                                               |
-| `merchant_name`        | VARCHAR(100) |     | Synthetic merchant name.                                                          |
-| `merchant_category`    | VARCHAR(50)  |     | Merchant category such as Grocery, Electronics, Travel, Gaming, or Digital Goods. |
-| `merchant_country`     | VARCHAR(50)  |     | Country in which the merchant operates.                                           |
-| `merchant_risk_rating` | VARCHAR(20)  |     | Baseline risk classification assigned to the merchant.                            |
+The `banking.merchants` table stores information about merchants involved in customer transactions.
 
-Analytical use
+| Column | Data Type | Key | Description |
+|---|---|---|---|
+| `merchant_id` | BIGINT | PK | Unique merchant identifier |
+| `merchant_name` | VARCHAR(100) | | Synthetic merchant name |
+| `merchant_category` | VARCHAR(50) | | Merchant category |
+| `merchant_country` | VARCHAR(50) | | Merchant operating country |
+| `merchant_risk_rating` | VARCHAR(20) | | Baseline merchant risk classification |
 
-This table supports:
-- Fraud analysis by merchant category.
-- Merchant-level fraud loss analysis.
-- Merchant risk ranking.
-- Identification of merchants with disproportionate fraud losses.
-- Comparison of transaction volume against confirmed fraud.
+**Analytical use**
+
+- Analyse transaction activity by merchant category.
+- Compare merchant activity across customer segments.
+- Examine merchant risk attributes alongside transaction patterns.
 
 ## 5. Devices
-The device table contains information about devices used to initiate transactions
 
-| Column             | Data Type   | Key | Description                                                             |
-| ------------------ | ----------- | --- | ----------------------------------------------------------------------- |
-| `device_id`        | BIGINT      | PK  | Unique identifier for a device.                                         |
-| `device_type`      | VARCHAR(30) |     | Device category such as Smartphone, Laptop, Tablet, or ATM.             |
-| `operating_system` | VARCHAR(30) |     | Operating system associated with the device.                            |
-| `first_seen_date`  | DATE        |     | Date on which the device was first observed in the banking environment. |
+The `banking.devices` table contains information about devices used to initiate transactions.
 
-Analytical use
+| Column | Data Type | Key | Description |
+|---|---|---|---|
+| `device_id` | BIGINT | PK | Unique device identifier |
+| `device_type` | VARCHAR(30) | | Device category |
+| `operating_system` | VARCHAR(30) | | Associated operating system |
+| `first_seen_date` | DATE | | Date the device was first observed |
 
-This table supports:
-- New-device detection.
-- Device-account relationship analysis.
-- Device sharing analysis.
-- Identification of devices associated with multiple customers.
-- Investigation of potentially coordinated activity.
+**Analytical use**
 
-## 6. Locations 
-The locations table contains geographic information associated with transactions.
+- Examine customer-device relationships.
+- Identify devices associated with multiple customers.
+- Support shared-device activity analysis.
+- Provide contextual information for suspicious transaction investigations.
 
-| Column        | Data Type    | Key | Description                                    |
-| ------------- | ------------ | --- | ---------------------------------------------- |
-| `location_id` | BIGINT       | PK  | Unique identifier for a transaction location.  |
-| `city`        | VARCHAR(50)  |     | City associated with the transaction.          |
-| `country`     | VARCHAR(50)  |     | Country associated with the transaction.       |
-| `region`      | VARCHAR(50)  |     | State, province, or broader geographic region. |
-| `latitude`    | NUMERIC(9,6) |     | Latitude coordinate of the location.           |
-| `longitude`   | NUMERIC(9,6) |     | Longitude coordinate of the location.          |
+## 6. Locations
 
-Analytical use
+The `banking.locations` table contains geographic information associated with transactions.
 
-This table supports:
-- Geographic fraud analysis.
-- Regional fraud-rate comparisons.
-- Location-based behavioral analysis.
-- Geographic anomaly detection.
-- Distance calculations between consecutive transactions.
+| Column | Data Type | Key | Description |
+|---|---|---|---|
+| `location_id` | BIGINT | PK | Unique location identifier |
+| `city` | VARCHAR(50) | | Associated city |
+| `country` | VARCHAR(50) | | Associated country |
+| `region` | VARCHAR(50) | | State, province or geographic region |
+| `latitude` | NUMERIC(9,6) | | Latitude coordinate |
+| `longitude` | NUMERIC(9,6) | | Longitude coordinate |
+
+**Analytical use**
+
+- Analyse transaction activity by geography.
+- Compare regional transaction patterns.
+- Support geographic behavioural analysis.
+- Provide location context for suspicious activity.
+
+*Note: Geographic coordinates represent simulated locations and may use city-level reference coordinates rather than precise transaction locations.*
 
 ## 7. Beneficiaries
-The beneficiaries table contains information about accounts or entities receiving transferred funds.
 
-| Column                    | Data Type   | Key | Description                                                              |
-| ------------------------- | ----------- | --- | ------------------------------------------------------------------------ |
-| `beneficiary_id`          | BIGINT      | PK  | Unique identifier for the beneficiary.                                   |
-| `beneficiary_account`     | VARCHAR(30) |     | Synthetic destination account identifier.                                |
-| `beneficiary_country`     | VARCHAR(50) |     | Country associated with the beneficiary.                                 |
-| `beneficiary_type`        | VARCHAR(30) |     | Type of beneficiary, such as Individual or Business.                     |
-| `beneficiary_risk_rating` | VARCHAR(20) |     | Baseline risk classification assigned to the beneficiary.                |
-| `first_seen_date`         | DATE        |     | Date on which the beneficiary was first observed receiving transactions. |
+The `banking.beneficiaries` table contains information about recipients of account-to-account transfers.
 
-Analytical use
+| Column | Data Type | Key | Description |
+|---|---|---|---|
+| `beneficiary_id` | BIGINT | PK | Unique beneficiary identifier |
+| `beneficiary_account` | VARCHAR(30) | | Synthetic destination account identifier |
+| `beneficiary_country` | VARCHAR(50) | | Beneficiary country |
+| `beneficiary_type` | VARCHAR(30) | | Individual, Business or other beneficiary category |
+| `beneficiary_risk_rating` | VARCHAR(20) | | Baseline beneficiary risk classification |
+| `first_seen_date` | DATE | | Date the beneficiary was first observed |
 
-This table supports:
-- Common-beneficiary analysis.
-- Beneficiary risk analysis.
-- Account-to-beneficiary relationship analysis.
-- Potential mule-account investigation.
-- Detection of unusual concentrations of funds.
+**Analytical use**
 
-## 8. Fraud Alerts
-The fraud_alerts table stores alerts generated by the fraud detection layer. An alert represents a transaction or activity pattern that has been identified as potentially suspicious. 
+- Analyse beneficiary relationships.
+- Examine common-beneficiary patterns.
+- Identify unusual concentrations of incoming transfers.
+- Support potential fund-flow and mule-account investigations.
 
-| Column            | Data Type    | Key | Description                                                                     |
-| ----------------- | ------------ | --- | ------------------------------------------------------------------------------- |
-| `alert_id`        | BIGINT       | PK  | Unique identifier for the fraud alert.                                          |
-| `transaction_id`  | BIGINT       | FK  | Transaction that triggered or contributed to the alert.                         |
-| `alert_timestamp` | TIMESTAMP    |     | Date and time when the alert was generated.                                     |
-| `alert_type`      | VARCHAR(50)  |     | Type of suspicious behavior detected.                                           |
-| `risk_score`      | NUMERIC(5,2) |     | Explainable risk score assigned to the alert, ranging from 0–100.               |
-| `alert_status`    | VARCHAR(20)  |     | Current status of the alert, such as Open, Investigating, Escalated, or Closed. |
+## 8. Ground Truth
 
-Analytical use
+The `evaluation.ground_truth` table stores metadata about intentionally injected suspicious scenarios in the synthetic dataset.
 
-This table supports:
-- Alert prioritization.
-- Alert-volume analysis.
-- Risk-score analysis.
-- Detection-rule performance analysis.
-- Investigation workload analysis.
-- False-positive analysis.
+It is maintained separately from the operational banking data and is used for evaluation purposes.
 
-## 9. Investigation Cases
-This table records the outcome of the investigations performed on suspicious alerts. It represents the transition from automated detection to human investigation.
+| Column | Data Type | Key | Description |
+|---|---|---|---|
+| `scenario_id` | VARCHAR | | Identifier associated with the injected scenario |
+| `transaction_id` | BIGINT | | Associated transaction identifier |
+| `account_id` | BIGINT | | Associated account identifier |
+| `customer_id` | BIGINT | | Associated customer identifier |
+| `scenario_type` | VARCHAR | | Type of injected suspicious behaviour |
+| `is_injected_suspicious` | SMALLINT | | Indicator identifying injected suspicious activity |
 
-| Column                     | Data Type     | Key | Description                                                                                                         |
-| -------------------------- | ------------- | --- | ------------------------------------------------------------------------------------------------------------------- |
-| `case_id`                  | BIGINT        | PK  | Unique identifier for the investigation case.                                                                       |
-| `alert_id`                 | BIGINT        | FK  | Alert associated with the investigation case.                                                                       |
-| `case_priority`            | VARCHAR(20)   |     | Priority assigned to the case based on risk and financial exposure.                                                 |
-| `case_status`              | VARCHAR(30)   |     | Current case status, such as Open, Investigating, Closed, or Escalated.                                             |
-| `investigation_start_date` | DATE          |     | Date on which investigation began.                                                                                  |
-| `investigation_end_date`   | DATE          |     | Date on which investigation was completed, if applicable.                                                           |
-| `investigation_outcome`    | VARCHAR(40)   |     | Final investigation result, such as Confirmed Fraud, Suspicious Activity, False Positive, or Insufficient Evidence. |
-| `confirmed_fraud_amount`   | NUMERIC(15,2) |     | Amount confirmed as fraudulent following investigation.                                                             |
+**Analytical use**
 
-Analytical use
+- Evaluate detection results against known injected scenarios.
+- Support true-positive and false-positive analysis.
+- Measure detection precision and recall where applicable.
+- Examine detection performance across scenario types.
 
-This table supports:
-- Fraud-loss measurement.
-- Case prioritization.
-- Investigation turnaround-time analysis.
-- False-positive analysis.
-- Investigator workload analysis.
-- Detection-to-confirmed-fraud conversion analysis.
+**Important:** Ground-truth information is evaluation metadata and is not used to generate operational detection rules or historical behavioural baselines. The injected scenarios represent simulated suspicious behaviour, not independently verified real-world fraud.
+
+## Database Overview
+
+| Schema | Table | Purpose |
+|---|---|---|
+| `banking` | customers | Customer information |
+| `banking` | accounts | Account information |
+| `banking` | transactions | Transaction records |
+| `banking` | merchants | Merchant information |
+| `banking` | devices | Device information |
+| `banking` | locations | Geographic information |
+| `banking` | beneficiaries | Beneficiary information |
+| `evaluation` | ground_truth | Synthetic scenario evaluation metadata |
+
+## Important Data Considerations
+
+- All records are synthetic and created for analytical and demonstration purposes.
+- Account balances are simulated snapshots, not reconciled banking ledger balances.
+- Geographic coordinates are simulated or city-level reference locations.
+- Detection flags represent potentially suspicious activity requiring further examination; they do not establish confirmed fraud.
+- The ground-truth table represents intentionally injected scenarios and should be treated as a synthetic evaluation reference.
